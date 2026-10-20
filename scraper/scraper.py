@@ -33,6 +33,19 @@ class Vacancy:
         return f"(title: {self.title}, company: {self.company}, seniority: {self.seniority}, remote_allowed: {self.remote_allowed}, location:{self.location}, salary: {self.salary}, skills:{self.skills}, habr_id:{self.habr_id})"
 
 
+def parse_salary(text: str) -> int | None:
+    text = re.sub(r"\s+", " ", text)
+    amounts = re.findall(r"\d+(?: \d{3})*", text)  # «150 000» -> «150000»
+    amounts = [int(amount.replace(" ", "")) for amount in amounts]
+
+    if len(amounts) == 1:
+        return amounts[0]
+    if len(amounts) == 2 and amounts[0] <= amounts[1]:
+        return (amounts[0] + amounts[1]) // 2
+
+    return None
+
+
 def scrape_vacancy(vacancy: Tag) -> Vacancy:
     title = vacancy.select_one("a.vacancy-card__title-link")
     assert title is not None
@@ -65,14 +78,10 @@ def scrape_vacancy(vacancy: Tag) -> Vacancy:
     if salary_div is not None:
         salary_basic = salary_div.select_one(".basic-salary")
         if salary_basic is not None:
-            salary = int(salary_basic.get_text().split()[1])
+            salary = parse_salary(salary_basic.get_text(" ", strip=True))
         salary_predicted = salary_div.select_one("span.tooltip")
         if salary_predicted is not None and salary_basic is None:
-            text = salary_predicted.get_text()
-            salaries = re.findall(r"\d[\d\s]*", text)
-            salaries = [int(salary.replace(" ", "")) for salary in salaries]
-            mean = (salaries[0] + salaries[1]) // 2
-            salary = mean
+            salary = parse_salary(salary_predicted.get_text(" ", strip=True))
 
     skills = []
     skills_a = vacancy.select("a.basic-chip.vacancy-card__skills-chip.basic-chip--color-ui-gray-4")
